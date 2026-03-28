@@ -19,5 +19,6 @@ public class TenantProperties {
   public static class Resolver {
     private TenantResolverStrategy strategy = TenantResolverStrategy.HEADER;
     private String headerName = "X-Tenant-ID";
+    private String jwtClaimName = "tenant_id";
   }
 }
