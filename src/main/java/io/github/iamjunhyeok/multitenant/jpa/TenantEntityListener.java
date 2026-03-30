@@ -9,7 +9,7 @@ public class TenantEntityListener {
 
   @PrePersist
   public void setTenantId(Object entity) {
-    if (!(entity instanceof BaseTenantEntity tenantEntity)) {
+    if (!(entity instanceof TenantAwareEntity tenantEntity)) {
       return;
     }
     if (tenantEntity.getTenantId() != null) {

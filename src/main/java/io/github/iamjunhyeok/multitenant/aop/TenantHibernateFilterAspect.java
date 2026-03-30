@@ -30,7 +30,7 @@ public class TenantHibernateFilterAspect {
       session.enableFilter(TENANT_FILTER_NAME)
           .setParameter("tenantId", context.tenantId().value());
     } catch (UnknownFilterException e) {
-      log.warn("Hibernate filter '{}' not found. Ensure your entity extends BaseTenantEntity.", TENANT_FILTER_NAME);
+      log.warn("Hibernate filter '{}' not found. Ensure your entity extends TenantAwareEntity.", TENANT_FILTER_NAME);
     }
   }
 
