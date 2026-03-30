@@ -18,10 +18,6 @@ public class TenantProperties {
 
   private final Filter filter = new Filter();
 
-  private final Jpa jpa = new Jpa();
-
-  private final Mybatis mybatis = new Mybatis();
-
   private final Logging logging = new Logging();
 
   @Getter
@@ -37,19 +33,6 @@ public class TenantProperties {
   public static class Filter {
     private List<String> excludePaths = new ArrayList<>(List.of("/actuator/**", "/health"));
     private int order = -100;
-  }
-
-  @Getter
-  @Setter
-  public static class Jpa {
-    private String filterName = "tenantFilter";
-    private String tenantColumn = "tenant_id";
-  }
-
-  @Getter
-  @Setter
-  public static class Mybatis {
-    private String tenantColumn = "tenant_id";
   }
 
   @Getter

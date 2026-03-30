@@ -1,6 +1,7 @@
 package io.github.iamjunhyeok.multitenant.aop;
 
-import io.github.iamjunhyeok.multitenant.config.property.TenantProperties;
+import static io.github.iamjunhyeok.multitenant.constant.TenantConstants.TENANT_FILTER_NAME;
+
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
 import jakarta.persistence.EntityManager;
@@ -17,7 +18,6 @@ import org.hibernate.UnknownFilterException;
 public class TenantHibernateFilterAspect {
 
   private final EntityManager entityManager;
-  private final TenantProperties tenantProperties;
 
   @Before("execution(* org.springframework.data.jpa.repository.JpaRepository+.*(..))")
   public void enableTenantFilter() {
@@ -25,13 +25,12 @@ public class TenantHibernateFilterAspect {
     if (context == null) {
       return;
     }
-    String filterName = tenantProperties.getJpa().getFilterName();
     try {
       Session session = entityManager.unwrap(Session.class);
-      session.enableFilter(filterName)
+      session.enableFilter(TENANT_FILTER_NAME)
           .setParameter("tenantId", context.tenantId().value());
     } catch (UnknownFilterException e) {
-      log.warn("Hibernate filter '{}' not found. Ensure your entity extends BaseTenantEntity.", filterName);
+      log.warn("Hibernate filter '{}' not found. Ensure your entity extends BaseTenantEntity.", TENANT_FILTER_NAME);
     }
   }
 

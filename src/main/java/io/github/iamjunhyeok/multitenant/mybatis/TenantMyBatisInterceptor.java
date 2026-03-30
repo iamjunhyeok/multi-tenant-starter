@@ -1,10 +1,10 @@
 package io.github.iamjunhyeok.multitenant.mybatis;
 
-import io.github.iamjunhyeok.multitenant.config.property.TenantProperties;
+import static io.github.iamjunhyeok.multitenant.constant.TenantConstants.TENANT_COLUMN;
+
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
 import java.sql.Connection;
-import lombok.RequiredArgsConstructor;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -16,13 +16,10 @@ import org.apache.ibatis.plugin.Signature;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.SystemMetaObject;
 
-@RequiredArgsConstructor
 @Intercepts({
     @Signature(type = StatementHandler.class, method = "prepare", args = {Connection.class, Integer.class})
 })
 public class TenantMyBatisInterceptor implements Interceptor {
-
-  private final TenantProperties tenantProperties;
 
   @Override
   public Object intercept(Invocation invocation) throws Throwable {
@@ -39,16 +36,15 @@ public class TenantMyBatisInterceptor implements Interceptor {
 
     BoundSql boundSql = handler.getBoundSql();
     String originalSql = boundSql.getSql();
-    String tenantColumn = tenantProperties.getMybatis().getTenantColumn();
     String tenantId = context.tenantId().value();
 
     String modifiedSql;
     if (commandType == SqlCommandType.SELECT) {
-      modifiedSql = addWhereCondition(originalSql, tenantColumn, tenantId);
+      modifiedSql = addWhereCondition(originalSql, TENANT_COLUMN, tenantId);
     } else if (commandType == SqlCommandType.INSERT) {
-      modifiedSql = addInsertColumn(originalSql, tenantColumn, tenantId);
+      modifiedSql = addInsertColumn(originalSql, TENANT_COLUMN, tenantId);
     } else if (commandType == SqlCommandType.UPDATE || commandType == SqlCommandType.DELETE) {
-      modifiedSql = addWhereCondition(originalSql, tenantColumn, tenantId);
+      modifiedSql = addWhereCondition(originalSql, TENANT_COLUMN, tenantId);
     } else {
       modifiedSql = originalSql;
     }
