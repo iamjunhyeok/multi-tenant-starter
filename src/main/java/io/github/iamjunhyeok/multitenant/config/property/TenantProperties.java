@@ -22,6 +22,8 @@ public class TenantProperties {
 
   private final Mybatis mybatis = new Mybatis();
 
+  private final Logging logging = new Logging();
+
   @Getter
   @Setter
   public static class Resolver {
@@ -48,5 +50,11 @@ public class TenantProperties {
   @Setter
   public static class Mybatis {
     private String tenantColumn = "tenant_id";
+  }
+
+  @Getter
+  @Setter
+  public static class Logging {
+    private String mdcKey = "tenantId";
   }
 }
