@@ -4,13 +4,13 @@ import io.github.iamjunhyeok.multitenant.config.property.TenantProperties;
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
 import io.github.iamjunhyeok.multitenant.core.TenantId;
-import io.github.iamjunhyeok.multitenant.exception.TenantNotFoundException;
 import io.github.iamjunhyeok.multitenant.resolver.TenantResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -26,8 +26,8 @@ public class TenantContextFilter extends OncePerRequestFilter {
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
       FilterChain filterChain) throws ServletException, IOException {
     try {
-      TenantId tenantId = tenantResolver.resolve(request).orElseThrow(() -> new TenantNotFoundException("Tenant could not be resolved from request"));
-      TenantContextHolder.setContext(new TenantContext(tenantId));
+      Optional<TenantId> tenantId = tenantResolver.resolve(request);
+      tenantId.ifPresent(id -> TenantContextHolder.setContext(new TenantContext(id)));
       filterChain.doFilter(request, response);
     } finally {
       TenantContextHolder.clear();
