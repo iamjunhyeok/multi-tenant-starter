@@ -5,9 +5,12 @@ import static io.github.iamjunhyeok.multitenant.constant.TenantConstants.TENANT_
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.mapping.ParameterMapping;
 import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.plugin.Interceptor;
 import org.apache.ibatis.plugin.Intercepts;
@@ -20,6 +23,8 @@ import org.apache.ibatis.reflection.SystemMetaObject;
     @Signature(type = StatementHandler.class, method = "prepare", args = {Connection.class, Integer.class})
 })
 public class TenantMyBatisInterceptor implements Interceptor {
+
+  private static final String TENANT_PARAM_KEY = "_tenantId";
 
   @Override
   public Object intercept(Invocation invocation) throws Throwable {
@@ -36,45 +41,56 @@ public class TenantMyBatisInterceptor implements Interceptor {
 
     BoundSql boundSql = handler.getBoundSql();
     String originalSql = boundSql.getSql();
-    String tenantId = context.tenantId().value();
 
     String modifiedSql;
-    if (commandType == SqlCommandType.SELECT) {
-      modifiedSql = addWhereCondition(originalSql, TENANT_COLUMN, tenantId);
+    if (commandType == SqlCommandType.SELECT
+        || commandType == SqlCommandType.UPDATE
+        || commandType == SqlCommandType.DELETE) {
+      modifiedSql = addWhereCondition(originalSql);
     } else if (commandType == SqlCommandType.INSERT) {
-      modifiedSql = addInsertColumn(originalSql, TENANT_COLUMN, tenantId);
-    } else if (commandType == SqlCommandType.UPDATE || commandType == SqlCommandType.DELETE) {
-      modifiedSql = addWhereCondition(originalSql, TENANT_COLUMN, tenantId);
+      modifiedSql = addInsertColumn(originalSql);
     } else {
-      modifiedSql = originalSql;
+      return invocation.proceed();
     }
 
     metaObject.setValue("delegate.boundSql.sql", modifiedSql);
+
+    // ParameterMapping 추가 (? 플레이스홀더에 대응)
+    ParameterMapping tenantMapping = new ParameterMapping.Builder(
+        ms.getConfiguration(), TENANT_PARAM_KEY, String.class).build();
+
+    List<ParameterMapping> mappings = new ArrayList<>(boundSql.getParameterMappings());
+    if (commandType == SqlCommandType.SELECT
+        || commandType == SqlCommandType.UPDATE
+        || commandType == SqlCommandType.DELETE) {
+      // WHERE tenant_id = ? AND ... → 기존 파라미터 앞에 추가
+      mappings.addFirst(tenantMapping);
+    } else {
+      // INSERT ... VALUES (..., ?) → 기존 파라미터 뒤에 추가
+      mappings.add(tenantMapping);
+    }
+    metaObject.setValue("delegate.boundSql.parameterMappings", mappings);
+
+    // additionalParameter로 tenant 값 바인딩
+    boundSql.setAdditionalParameter(TENANT_PARAM_KEY, context.tenantId().value());
+
     return invocation.proceed();
   }
 
-  private String addWhereCondition(String sql, String column, String tenantId) {
-    String condition = column + " = '" + tenantId + "'";
+  private String addWhereCondition(String sql) {
+    String placeholder = TENANT_COLUMN + " = ?";
     String upperSql = sql.toUpperCase();
 
     int whereIndex = upperSql.lastIndexOf("WHERE");
     if (whereIndex >= 0) {
-      return sql.substring(0, whereIndex + 5) + " " + condition + " AND" + sql.substring(whereIndex + 5);
+      return sql.substring(0, whereIndex + 5) + " " + placeholder + " AND" + sql.substring(whereIndex + 5);
     }
 
-    int orderByIndex = upperSql.indexOf("ORDER BY");
-    int limitIndex = upperSql.indexOf("LIMIT");
-    int groupByIndex = upperSql.indexOf("GROUP BY");
-
-    int insertPos = sql.length();
-    if (orderByIndex >= 0) insertPos = Math.min(insertPos, orderByIndex);
-    if (limitIndex >= 0) insertPos = Math.min(insertPos, limitIndex);
-    if (groupByIndex >= 0) insertPos = Math.min(insertPos, groupByIndex);
-
-    return sql.substring(0, insertPos) + " WHERE " + condition + " " + sql.substring(insertPos);
+    int insertPos = findClausePosition(upperSql, sql.length());
+    return sql.substring(0, insertPos) + " WHERE " + placeholder + " " + sql.substring(insertPos);
   }
 
-  private String addInsertColumn(String sql, String column, String tenantId) {
+  private String addInsertColumn(String sql) {
     String upperSql = sql.toUpperCase();
     int valuesIndex = upperSql.indexOf("VALUES");
     if (valuesIndex < 0) {
@@ -89,15 +105,22 @@ public class TenantMyBatisInterceptor implements Interceptor {
       return sql;
     }
 
-    String beforeColumnClose = sql.substring(0, closingParen);
-    String afterColumnClose = sql.substring(closingParen);
+    String withColumn = sql.substring(0, closingParen) + ", " + TENANT_COLUMN + sql.substring(closingParen);
 
-    String withColumn = beforeColumnClose + ", " + column + afterColumnClose;
-
-    int newValuesCloseParen = withColumn.indexOf(')', withColumn.indexOf('(', withColumn.toUpperCase().indexOf("VALUES")));
-    String beforeValueClose = withColumn.substring(0, newValuesCloseParen);
-    String afterValueClose = withColumn.substring(newValuesCloseParen);
-
-    return beforeValueClose + ", '" + tenantId + "'" + afterValueClose;
+    int newValuesCloseParen = withColumn.indexOf(')',
+        withColumn.indexOf('(', withColumn.toUpperCase().indexOf("VALUES")));
+    return withColumn.substring(0, newValuesCloseParen) + ", ?" + withColumn.substring(newValuesCloseParen);
   }
+
+  private int findClausePosition(String upperSql, int defaultPos) {
+    int pos = defaultPos;
+    for (String clause : new String[]{"ORDER BY", "GROUP BY", "HAVING", "LIMIT"}) {
+      int idx = upperSql.indexOf(clause);
+      if (idx >= 0) {
+        pos = Math.min(pos, idx);
+      }
+    }
+    return pos;
+  }
+
 }
