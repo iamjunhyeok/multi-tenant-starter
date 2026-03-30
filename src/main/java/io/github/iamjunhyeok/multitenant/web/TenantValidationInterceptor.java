@@ -15,10 +15,10 @@ public class TenantValidationInterceptor implements HandlerInterceptor {
     if (!(handler instanceof HandlerMethod handlerMethod)) {
       return true;
     }
-    boolean required = handlerMethod.hasMethodAnnotation(RequireTenant.class)
-        || handlerMethod.getBeanType().isAnnotationPresent(RequireTenant.class);
+    boolean required = handlerMethod.hasMethodAnnotation(TenantRequired.class)
+        || handlerMethod.getBeanType().isAnnotationPresent(TenantRequired.class);
     if (required && TenantContextHolder.getContext() == null) {
-      throw new TenantNotValidException("@RequireTenant: tenant context is missing");
+      throw new TenantNotValidException("@TenantRequired: tenant context is missing");
     }
     return true;
   }
