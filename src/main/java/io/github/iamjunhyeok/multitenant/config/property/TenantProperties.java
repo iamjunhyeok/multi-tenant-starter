@@ -18,6 +18,8 @@ public class TenantProperties {
 
   private final Filter filter = new Filter();
 
+  private final Id id = new Id();
+
   private final Logging logging = new Logging();
 
   @Getter
@@ -39,5 +41,12 @@ public class TenantProperties {
   @Setter
   public static class Logging {
     private String mdcKey = "tenantId";
+  }
+
+  @Getter
+  @Setter
+  public static class Id {
+    private int maxLength = 64;
+    private String pattern = "^[a-zA-Z0-9_-]+$";
   }
 }

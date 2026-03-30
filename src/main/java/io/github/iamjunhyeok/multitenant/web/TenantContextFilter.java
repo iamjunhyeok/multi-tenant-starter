@@ -4,6 +4,7 @@ import io.github.iamjunhyeok.multitenant.config.property.TenantProperties;
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
 import io.github.iamjunhyeok.multitenant.core.TenantId;
+import io.github.iamjunhyeok.multitenant.core.TenantIdValidator;
 import io.github.iamjunhyeok.multitenant.resolver.TenantResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,6 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class TenantContextFilter extends OncePerRequestFilter {
 
   private final TenantResolver tenantResolver;
+  private final TenantIdValidator tenantIdValidator;
   private final TenantProperties tenantProperties;
   private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
@@ -27,7 +29,10 @@ public class TenantContextFilter extends OncePerRequestFilter {
       FilterChain filterChain) throws ServletException, IOException {
     try {
       Optional<TenantId> tenantId = tenantResolver.resolve(request);
-      tenantId.ifPresent(id -> TenantContextHolder.setContext(new TenantContext(id)));
+      tenantId.ifPresent(id -> {
+        tenantIdValidator.validate(id);
+        TenantContextHolder.setContext(new TenantContext(id));
+      });
       filterChain.doFilter(request, response);
     } finally {
       TenantContextHolder.clear();

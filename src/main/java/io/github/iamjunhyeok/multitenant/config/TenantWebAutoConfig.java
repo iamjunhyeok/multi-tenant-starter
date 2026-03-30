@@ -1,6 +1,7 @@
 package io.github.iamjunhyeok.multitenant.config;
 
 import io.github.iamjunhyeok.multitenant.config.property.TenantProperties;
+import io.github.iamjunhyeok.multitenant.core.TenantIdValidator;
 import io.github.iamjunhyeok.multitenant.resolver.HeaderTenantResolver;
 import io.github.iamjunhyeok.multitenant.resolver.TenantResolver;
 import io.github.iamjunhyeok.multitenant.web.TenantContextFilter;
@@ -33,9 +34,16 @@ public class TenantWebAutoConfig implements WebMvcConfigurer {
   }
 
   @Bean
-  public FilterRegistrationBean<TenantContextFilter> tenantContextFilter(TenantResolver tenantResolver) {
+  @ConditionalOnMissingBean(TenantIdValidator.class)
+  public TenantIdValidator tenantIdValidator() {
+    return new TenantIdValidator(tenantProperties);
+  }
+
+  @Bean
+  public FilterRegistrationBean<TenantContextFilter> tenantContextFilter(
+      TenantResolver tenantResolver, TenantIdValidator tenantIdValidator) {
     FilterRegistrationBean<TenantContextFilter> registration = new FilterRegistrationBean<>();
-    registration.setFilter(new TenantContextFilter(tenantResolver, tenantProperties));
+    registration.setFilter(new TenantContextFilter(tenantResolver, tenantIdValidator, tenantProperties));
     registration.setOrder(tenantProperties.getFilter().getOrder());
     registration.addUrlPatterns("/*");
     return registration;
