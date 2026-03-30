@@ -13,7 +13,7 @@ public class TenantExceptionHandler {
 
   @ExceptionHandler(TenantNotFoundException.class)
   public ResponseEntity<Map<String, String>> handleTenantNotFound(TenantNotFoundException ex) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(Map.of("error", "TENANT_NOT_FOUND", "message", ex.getMessage()));
   }
 
