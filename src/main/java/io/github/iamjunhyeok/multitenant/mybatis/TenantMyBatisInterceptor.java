@@ -1,12 +1,13 @@
 package io.github.iamjunhyeok.multitenant.mybatis;
 
-import static io.github.iamjunhyeok.multitenant.constant.TenantConstants.TENANT_COLUMN;
-
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
+import io.github.iamjunhyeok.multitenant.mybatis.TenantSqlModifier.SqlModifyResult;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.JSQLParserException;
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -19,12 +20,14 @@ import org.apache.ibatis.plugin.Signature;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.SystemMetaObject;
 
+@Slf4j
 @Intercepts({
     @Signature(type = StatementHandler.class, method = "prepare", args = {Connection.class, Integer.class})
 })
 public class TenantMyBatisInterceptor implements Interceptor {
 
-  private static final String TENANT_PARAM_KEY = "_tenantId";
+  private static final String TENANT_PARAM_PREFIX = "_tenantId_";
+  private final TenantSqlModifier sqlModifier = new TenantSqlModifier();
 
   @Override
   public Object intercept(Invocation invocation) throws Throwable {
@@ -37,90 +40,51 @@ public class TenantMyBatisInterceptor implements Interceptor {
     MetaObject metaObject = SystemMetaObject.forObject(handler);
 
     MappedStatement ms = (MappedStatement) metaObject.getValue("delegate.mappedStatement");
+    if (ms == null) {
+      return invocation.proceed();
+    }
     SqlCommandType commandType = ms.getSqlCommandType();
+    if (commandType == null
+        || commandType == SqlCommandType.FLUSH
+        || commandType == SqlCommandType.UNKNOWN) {
+      return invocation.proceed();
+    }
 
     BoundSql boundSql = handler.getBoundSql();
     String originalSql = boundSql.getSql();
 
-    String modifiedSql;
-    if (commandType == SqlCommandType.SELECT
-        || commandType == SqlCommandType.UPDATE
-        || commandType == SqlCommandType.DELETE) {
-      modifiedSql = addWhereCondition(originalSql);
-    } else if (commandType == SqlCommandType.INSERT) {
-      modifiedSql = addInsertColumn(originalSql);
-    } else {
+    SqlModifyResult result;
+    try {
+      result = sqlModifier.modify(originalSql);
+    } catch (JSQLParserException e) {
+      log.warn("Failed to parse SQL for tenant injection, executing original SQL: {}", originalSql, e);
       return invocation.proceed();
     }
 
-    metaObject.setValue("delegate.boundSql.sql", modifiedSql);
+    metaObject.setValue("delegate.boundSql.sql", result.sql());
 
-    // ParameterMapping 추가 (? 플레이스홀더에 대응)
-    ParameterMapping tenantMapping = new ParameterMapping.Builder(
-        ms.getConfiguration(), TENANT_PARAM_KEY, String.class).build();
-
+    // 추가된 ? 플레이스홀더 수만큼 ParameterMapping 추가
     List<ParameterMapping> mappings = new ArrayList<>(boundSql.getParameterMappings());
-    if (commandType == SqlCommandType.SELECT
-        || commandType == SqlCommandType.UPDATE
-        || commandType == SqlCommandType.DELETE) {
-      // WHERE tenant_id = ? AND ... → 기존 파라미터 앞에 추가
-      mappings.addFirst(tenantMapping);
-    } else {
-      // INSERT ... VALUES (..., ?) → 기존 파라미터 뒤에 추가
-      mappings.add(tenantMapping);
+    String tenantId = context.tenantId().value();
+
+    for (int i = 0; i < result.addedParamCount(); i++) {
+      String paramKey = TENANT_PARAM_PREFIX + i;
+      ParameterMapping tenantMapping = new ParameterMapping.Builder(
+          ms.getConfiguration(), paramKey, String.class).build();
+
+      if (commandType == SqlCommandType.INSERT) {
+        mappings.add(tenantMapping);
+      } else {
+        // SELECT/UPDATE/DELETE: tenant 조건이 기존 WHERE 앞에 추가됨
+        mappings.add(i, tenantMapping);
+      }
+
+      boundSql.setAdditionalParameter(paramKey, tenantId);
     }
+
     metaObject.setValue("delegate.boundSql.parameterMappings", mappings);
 
-    // additionalParameter로 tenant 값 바인딩
-    boundSql.setAdditionalParameter(TENANT_PARAM_KEY, context.tenantId().value());
-
     return invocation.proceed();
-  }
-
-  private String addWhereCondition(String sql) {
-    String placeholder = TENANT_COLUMN + " = ?";
-    String upperSql = sql.toUpperCase();
-
-    int whereIndex = upperSql.lastIndexOf("WHERE");
-    if (whereIndex >= 0) {
-      return sql.substring(0, whereIndex + 5) + " " + placeholder + " AND" + sql.substring(whereIndex + 5);
-    }
-
-    int insertPos = findClausePosition(upperSql, sql.length());
-    return sql.substring(0, insertPos) + " WHERE " + placeholder + " " + sql.substring(insertPos);
-  }
-
-  private String addInsertColumn(String sql) {
-    String upperSql = sql.toUpperCase();
-    int valuesIndex = upperSql.indexOf("VALUES");
-    if (valuesIndex < 0) {
-      return sql;
-    }
-
-    int closingParen = sql.indexOf(')', sql.indexOf('('));
-    int valuesOpenParen = sql.indexOf('(', valuesIndex);
-    int valuesCloseParen = sql.indexOf(')', valuesOpenParen);
-
-    if (closingParen < 0 || valuesOpenParen < 0 || valuesCloseParen < 0) {
-      return sql;
-    }
-
-    String withColumn = sql.substring(0, closingParen) + ", " + TENANT_COLUMN + sql.substring(closingParen);
-
-    int newValuesCloseParen = withColumn.indexOf(')',
-        withColumn.indexOf('(', withColumn.toUpperCase().indexOf("VALUES")));
-    return withColumn.substring(0, newValuesCloseParen) + ", ?" + withColumn.substring(newValuesCloseParen);
-  }
-
-  private int findClausePosition(String upperSql, int defaultPos) {
-    int pos = defaultPos;
-    for (String clause : new String[]{"ORDER BY", "GROUP BY", "HAVING", "LIMIT"}) {
-      int idx = upperSql.indexOf(clause);
-      if (idx >= 0) {
-        pos = Math.min(pos, idx);
-      }
-    }
-    return pos;
   }
 
 }
