@@ -1,31 +1,29 @@
 # Multi-Tenant Starter
+Spring Boot 3.x 기반의 멀티테넌트 SaaS 애플리케이션 구축을 위한 자동 구성 스타터입니다.
 
-멀티테넌트 SaaS 애플리케이션을 위한 Spring Boot 3.x 자동 구성 스타터.
-의존성 하나 추가하고, 프로퍼티 몇 줄 설정하면 웹 레이어, JPA/Hibernate, MyBatis 전반에 걸친 투명한 테넌트 격리를 제공합니다.
+의존성을 추가하고, 프로퍼티 몇 줄 설정하면 Web Layer, JPA/Hibernate, MyBatis 전반에 걸친 테넌트 격리를 제공합니다.
 
-## 해결하는 문제
-
+## 왜 만들었나요?
 멀티테넌트 SaaS를 만들 때마다 반복되는 인프라 구현:
-- 요청마다 테넌트 식별 (헤더, JWT, 서브도메인)
-- 요청 생명주기 전체에 테넌트 컨텍스트 전파
+- 매 요청마다 테넌트 식별 (Header, JWT, ~~Subdomain~~)
+- 요청 생명주기 전체에 테넌트 컨텍스트 유지 및 전파
 - 모든 데이터베이스 쿼리에 테넌트 격리 강제
 - 테넌트 간 데이터 누수 방지
-- 테넌트 포함 로깅
+- 테넌트 포함 로깅 (트래킹 최적화)
 
-이 스타터는 위 모든 기능을 플러그 앤 플레이 라이브러리로 제공합니다.
+이 스타터는 위 기능들을 라이브러리로 제공하여, 개발자가 비즈니스 로직에만 집중할 수 있도록 돕습니다.
 
 ## 빠른 시작
-
 ### 1. 의존성 추가
 
 ```groovy
 // build.gradle
 dependencies {
-    implementation 'io.github.iamjunhyeok:multi-tenant-starter:0.0.1-SNAPSHOT'
+    implementation 'io.github.iamjunhyeok:multi-tenant-starter:0.0.2-SNAPSHOT'
 }
 ```
 
-### 2. 설정 (선택 사항 - 기본값으로 바로 동작)
+### 2. 설정 (Optional)
 
 ```yaml
 # application.yml
@@ -41,11 +39,11 @@ tenant:
 curl -H "X-Tenant-ID: tenant-a" http://localhost:8080/users
 ```
 
-이게 전부입니다. 모든 데이터베이스 쿼리가 자동으로 `tenant-a` 기준으로 필터링됩니다.
+이제 모든 데이터베이스 쿼리는 자동으로 `tenant-a` 기준으로 필터링됩니다.
 
 ---
 
-## 기능
+## 핵심 기능
 
 ### 테넌트 식별
 
@@ -54,11 +52,11 @@ curl -H "X-Tenant-ID: tenant-a" http://localhost:8080/users
 | **Header** (기본값) | HTTP 헤더 `X-Tenant-ID` | `tenant.resolver.header-name` |
 | **JWT** | JWT claim `tenant_id` | `tenant.resolver.jwt-claim-name` |
 
-`TenantResolver` 인터페이스를 구현하고 빈으로 등록하면 커스텀 리졸버를 사용할 수 있습니다.
+`TenantResolver` 인터페이스를 구현하고 빈으로 등록하면 커스텀 할 수 있습니다.
 
 ### 테넌트 ID 검증
 
-모든 요청에서 테넌트 ID를 검증합니다:
+모든 요청에서 테넌트 ID를 검증합니다.
 - 최대 길이: 64자 (설정 가능)
 - 허용 문자: `a-zA-Z0-9_-` (정규식 설정 가능)
 
@@ -71,7 +69,7 @@ tenant:
 
 ### JPA / Hibernate 통합
 
-`TenantAwareEntity`를 상속하면 자동으로 테넌트 격리가 적용됩니다:
+`TenantAwareEntity`를 상속하면 자동으로 테넌트 격리가 적용됩니다.
 
 ```java
 @Entity
@@ -103,7 +101,7 @@ orderRepository.save(order);
 
 ### MyBatis 통합
 
-별도 상속이 필요 없습니다. [JSqlParser](https://github.com/JSQLParser/JSqlParser) 기반 SQL 인터셉터가 AST 수준에서 쿼리를 변환합니다:
+별도 상속이 필요 없습니다. [JSqlParser](https://github.com/JSQLParser/JSqlParser) 기반 SQL 인터셉터가 AST 수준에서 쿼리를 변환합니다.
 
 ```java
 @Mapper
@@ -187,33 +185,59 @@ logging:
 
 ## 아키텍처
 
-```
-HTTP Request (X-Tenant-ID: tenant-a)
-       |
-  TenantContextFilter          resolve -> validate -> set ThreadLocal
-       |
-  TenantMdcFilter              MDC.put("tenantId", "tenant-a")
-       |
-  TenantValidationInterceptor  @TenantRequired 검사
-       |
-  Controller                   TenantId 인자 주입
-       |
-  +----+----+
-  |         |
-  JPA     MyBatis
-  |         |
-  Aspect    Interceptor
-  |         |
-  Session   JSqlParser
-  .enable   AST 변환
-  Filter()  SQL
-  |         |
-  WHERE tenant_id = ?
-       |
-  Response
-       |
-  finally { TenantContextHolder.clear() }
-```
+[//]: # (```)
+
+[//]: # (HTTP Request &#40;X-Tenant-ID: tenant-a&#41;)
+
+[//]: # (       |)
+
+[//]: # (  TenantContextFilter          resolve -> validate -> set ThreadLocal)
+
+[//]: # (       |)
+
+[//]: # (  TenantMdcFilter              MDC.put&#40;"tenantId", "tenant-a"&#41;)
+
+[//]: # (       |)
+
+[//]: # (  TenantValidationInterceptor  @TenantRequired 검사)
+
+[//]: # (       |)
+
+[//]: # (  Controller                   TenantId 인자 주입)
+
+[//]: # (       |)
+
+[//]: # (  +----+----+)
+
+[//]: # (  |         |)
+
+[//]: # (  JPA     MyBatis)
+
+[//]: # (  |         |)
+
+[//]: # (  Aspect    Interceptor)
+
+[//]: # (  |         |)
+
+[//]: # (  Session   JSqlParser)
+
+[//]: # (  .enable   AST 변환)
+
+[//]: # (  Filter&#40;&#41;  SQL)
+
+[//]: # (  |         |)
+
+[//]: # (  WHERE tenant_id = ?)
+
+[//]: # (       |)
+
+[//]: # (  Response)
+
+[//]: # (       |)
+
+[//]: # (  finally { TenantContextHolder.clear&#40;&#41; })
+
+[//]: # (```)
 
 ### 요청 흐름
 
@@ -368,7 +392,3 @@ io.github.iamjunhyeok.multitenant
 | AspectJ | 1.9.x |
 | Jakarta Servlet | 6.1 |
 | Java | 21+ |
-
-## 라이선스
-
-MIT
