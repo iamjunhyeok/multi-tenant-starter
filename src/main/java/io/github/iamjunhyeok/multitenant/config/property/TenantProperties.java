@@ -63,6 +63,7 @@ public class TenantProperties {
   @Setter
   public static class Schema {
     private String defaultSchema = "public";
+    private Map<String, String> mappings = new HashMap<>();
   }
 
   @Getter
