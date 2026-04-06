@@ -69,7 +69,9 @@ public class TenantProperties {
   @Getter
   @Setter
   public static class Database {
+    private String defaultTenant;
     private Map<String, DataSourceProperty> datasources = new HashMap<>();
+    private Map<String, String> mappings = new HashMap<>();
   }
 
   @Getter

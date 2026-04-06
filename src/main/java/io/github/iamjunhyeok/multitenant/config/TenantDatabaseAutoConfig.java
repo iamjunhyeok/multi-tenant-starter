@@ -22,23 +22,22 @@ public class TenantDatabaseAutoConfig {
     TenantRoutingDataSource routingDataSource = new TenantRoutingDataSource();
 
     Map<Object, Object> targetDataSources = new HashMap<>();
-    DataSource defaultDataSource = null;
-
     for (Map.Entry<String, DataSourceProperty> entry :
         tenantProperties.getDatabase().getDatasources().entrySet()) {
-      DataSource ds = buildDataSource(entry.getValue());
-      targetDataSources.put(entry.getKey(), ds);
-      if (defaultDataSource == null) {
-        defaultDataSource = ds;
-      }
+      targetDataSources.put(entry.getKey(), buildDataSource(entry.getValue()));
     }
-
     routingDataSource.setTargetDataSources(targetDataSources);
-    if (defaultDataSource != null) {
-      routingDataSource.setDefaultTargetDataSource(defaultDataSource);
-    }
-    routingDataSource.afterPropertiesSet();
 
+    // default tenant 설정
+    String defaultTenant = tenantProperties.getDatabase().getDefaultTenant();
+    if (defaultTenant != null && targetDataSources.containsKey(defaultTenant)) {
+      routingDataSource.setDefaultTargetDataSource(targetDataSources.get(defaultTenant));
+    }
+
+    // 테넌트 ID → datasource key 매핑
+    routingDataSource.setMappings(tenantProperties.getDatabase().getMappings());
+
+    routingDataSource.afterPropertiesSet();
     return routingDataSource;
   }
 
