@@ -9,7 +9,14 @@ import org.springframework.context.annotation.Import;
 @AutoConfiguration
 @EnableConfigurationProperties(TenantProperties.class)
 @ConditionalOnProperty(prefix = "tenant", name = "enabled", havingValue = "true", matchIfMissing = true)
-@Import({TenantWebAutoConfig.class, TenantJpaAutoConfig.class, TenantMyBatisAutoConfig.class, TenantLoggingAutoConfig.class})
+@Import({
+    TenantWebAutoConfig.class,
+    TenantJpaAutoConfig.class,
+    TenantMyBatisAutoConfig.class,
+    TenantSchemaAutoConfig.class,
+    TenantDatabaseAutoConfig.class,
+    TenantLoggingAutoConfig.class
+})
 public class TenantAutoConfig {
 
 }
