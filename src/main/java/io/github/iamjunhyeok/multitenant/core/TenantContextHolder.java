@@ -1,8 +1,11 @@
 package io.github.iamjunhyeok.multitenant.core;
 
-public class TenantContextHolder {
+public final class TenantContextHolder {
 
-  private static final ThreadLocal<TenantContext> holder = new InheritableThreadLocal<>();
+  private static final ThreadLocal<TenantContext> holder = new ThreadLocal<>();
+
+  private TenantContextHolder() {
+  }
 
   public static void setContext(TenantContext context) {
     holder.set(context);
