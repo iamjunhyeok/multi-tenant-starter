@@ -2,6 +2,7 @@ package io.github.iamjunhyeok.multitenant.isolation.database;
 
 import io.github.iamjunhyeok.multitenant.core.TenantContext;
 import io.github.iamjunhyeok.multitenant.core.TenantContextHolder;
+import io.github.iamjunhyeok.multitenant.exception.TenantNotFoundException;
 import java.util.Map;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
@@ -20,7 +21,11 @@ public class TenantRoutingDataSource extends AbstractRoutingDataSource {
       return null;
     }
     String tenantId = context.tenantId().value();
-    return mappings.getOrDefault(tenantId, tenantId);
+    String key = mappings.get(tenantId);
+    if (key == null) {
+      throw new TenantNotFoundException("Unknown tenant: " + tenantId);
+    }
+    return key;
   }
 
 }
