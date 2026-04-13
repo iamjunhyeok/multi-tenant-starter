@@ -19,7 +19,7 @@ public class TenantHibernateFilterAspect {
 
   private final EntityManager entityManager;
 
-  @Before("execution(* org.springframework.data.jpa.repository.JpaRepository+.*(..))")
+  @Before("execution(* org.springframework.data.repository.Repository+.*(..))")
   public void enableTenantFilter() {
     TenantContext context = TenantContextHolder.getContext();
     if (context == null) {
