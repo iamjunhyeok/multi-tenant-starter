@@ -57,13 +57,12 @@ public class TenantMyBatisInterceptor implements Interceptor {
     try {
       result = sqlModifier.modify(originalSql);
     } catch (JSQLParserException e) {
-      log.warn("Failed to parse SQL for tenant injection, executing original SQL: {}", originalSql, e);
+      log.warn("테넌트 조건 삽입을 위한 SQL 파싱 실패, 원본 SQL 실행: {}", originalSql, e);
       return invocation.proceed();
     }
 
     metaObject.setValue("delegate.boundSql.sql", result.sql());
 
-    // 추가된 ? 플레이스홀더 수만큼 ParameterMapping 추가
     List<ParameterMapping> mappings = new ArrayList<>(boundSql.getParameterMappings());
     String tenantId = context.tenantId().value();
 
@@ -75,7 +74,6 @@ public class TenantMyBatisInterceptor implements Interceptor {
       if (commandType == SqlCommandType.INSERT) {
         mappings.add(tenantMapping);
       } else {
-        // SELECT/UPDATE/DELETE: tenant 조건이 기존 WHERE 앞에 추가됨
         mappings.add(i, tenantMapping);
       }
 

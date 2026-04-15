@@ -25,7 +25,7 @@ public class TenantIdArgumentResolver implements HandlerMethodArgumentResolver {
       @Nullable WebDataBinderFactory binderFactory) throws Exception {
     TenantContext context = TenantContextHolder.getContext();
     if (context == null) {
-      throw new TenantNotFoundException("Tenant context is not set");
+      throw new TenantNotFoundException("테넌트 컨텍스트가 설정되지 않았습니다");
     }
     return context.tenantId();
   }

@@ -20,12 +20,12 @@ public class TenantIdValidator {
 
     if (value.length() > maxLength) {
       throw new TenantNotValidException(
-          "Tenant ID exceeds maximum length of " + maxLength + " characters");
+          "테넌트 ID 최대 길이 초과 (최대: " + maxLength + "자)");
     }
 
     if (!compiledPattern.matcher(value).matches()) {
       throw new TenantNotValidException(
-          "Tenant ID contains invalid characters. Allowed pattern: " + compiledPattern.pattern());
+          "허용되지 않는 테넌트 ID 형식 (허용 패턴: " + compiledPattern.pattern() + ")");
     }
   }
 

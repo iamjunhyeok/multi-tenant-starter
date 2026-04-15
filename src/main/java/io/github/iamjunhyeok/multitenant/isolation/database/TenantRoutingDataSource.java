@@ -23,7 +23,7 @@ public class TenantRoutingDataSource extends AbstractRoutingDataSource {
     String tenantId = context.tenantId().value();
     String key = mappings.get(tenantId);
     if (key == null) {
-      throw new TenantNotFoundException("Unknown tenant: " + tenantId);
+      throw new TenantNotFoundException("매핑되지 않은 테넌트입니다: " + tenantId);
     }
     return key;
   }

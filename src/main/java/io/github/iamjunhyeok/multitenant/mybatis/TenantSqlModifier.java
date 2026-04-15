@@ -122,7 +122,6 @@ public class TenantSqlModifier {
     }
 
     private void visitPlainSelect(PlainSelect ps) {
-      // FROM
       FromItem from = ps.getFromItem();
       if (from instanceof Table table) {
         ps.setWhere(appendTenantCondition(ps.getWhere(), table));
@@ -131,7 +130,6 @@ public class TenantSqlModifier {
         visitSelect(sub);
       }
 
-      // JOIN
       List<Join> joins = ps.getJoins();
       if (joins != null) {
         for (Join join : joins) {
@@ -145,13 +143,10 @@ public class TenantSqlModifier {
         }
       }
 
-      // WHERE 절 내 서브쿼리 탐색
       if (ps.getWhere() != null) {
         ps.getWhere().accept(this, null);
       }
     }
-
-    // === ExpressionVisitor overrides ===
 
     @Override
     public <S> Void visit(Select select, S context) {

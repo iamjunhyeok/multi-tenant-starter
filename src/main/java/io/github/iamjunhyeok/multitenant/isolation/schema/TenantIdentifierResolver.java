@@ -23,7 +23,7 @@ public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver
     Map<String, String> mappings = tenantProperties.getSchema().getMappings();
     String schema = mappings.get(tenantId);
     if (schema == null) {
-      throw new TenantNotFoundException("Unknown tenant: " + tenantId);
+      throw new TenantNotFoundException("등록되지 않은 테넌트입니다: " + tenantId);
     }
     return schema;
   }

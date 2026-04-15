@@ -17,7 +17,7 @@ public class TenantEntityListener {
     }
     TenantContext context = TenantContextHolder.getContext();
     if (context == null) {
-      throw new TenantNotFoundException("Tenant context is not set during entity persist");
+      throw new TenantNotFoundException("테넌트 컨텍스트 없이 엔티티를 저장할 수 없습니다");
     }
     tenantEntity.assignTenantId(context.tenantId().value());
   }
